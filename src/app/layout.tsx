@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
+import { Space_Mono } from "next/font/google";
 import { siteConfig } from "@/lib/site";
 import "./globals.css";
+
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-space-mono",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -18,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body className={spaceMono.variable}>{children}</body>
     </html>
   );
 }

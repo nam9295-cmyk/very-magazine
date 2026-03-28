@@ -21,11 +21,11 @@ body {
   min-height: 100vh;
   background: var(--color-paper);
   color: var(--color-ink);
-  font-family: "Charter", "Iowan Old Style", "Palatino Linotype", "Book Antiqua",
-    "URW Palladio L", Georgia, serif;
+  font-family: var(--font-space-mono), "SFMono-Regular", "JetBrains Mono", Consolas, Menlo,
+    monospace;
 }
 
 code {
-  font-family: "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", Menlo,
+  font-family: var(--font-space-mono), "SFMono-Regular", "JetBrains Mono", Consolas, Menlo,
     monospace;
 }

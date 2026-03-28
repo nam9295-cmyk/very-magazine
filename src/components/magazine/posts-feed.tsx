@@ -6,6 +6,22 @@ import type { MagazinePost } from "@/app/page";
 
 type Language = "kor" | "eng";
 const COLLAPSED_SUMMARY_HEIGHT = 84;
+const ALL_CATEGORY = "__all__";
+const UNCATEGORIZED_CATEGORY = "__uncategorized__";
+const UNCATEGORIZED_LABEL = "Uncategorized";
+const CATEGORY_LABELS: Record<string, string> = {
+  패션: "Fashion",
+  뷰티: "Beauty",
+  컬처: "Culture",
+  라이프: "Lifestyle",
+  엔터테인먼트: "Entertainment",
+  테크: "Tech",
+  비즈니스: "Business",
+  푸드: "Food",
+  여행: "Travel",
+  스포츠: "Sports",
+  뉴스: "News",
+};
 
 function formatSourceLabel(url: string) {
   try {
@@ -14,6 +30,16 @@ function formatSourceLabel(url: string) {
   } catch {
     return url;
   }
+}
+
+function getCategoryLabel(category?: string) {
+  const normalized = category?.trim();
+
+  if (!normalized) {
+    return UNCATEGORIZED_LABEL;
+  }
+
+  return CATEGORY_LABELS[normalized] || normalized;
 }
 
 function formatRelativeTime(value?: string) {
@@ -120,6 +146,7 @@ function PostItem({
   activeLanguage: Language;
   onLanguageChange: (language: Language) => void;
 }) {
+  const title = activeLanguage === "eng" ? post.eng_title || post.title : post.title;
   const summary = activeLanguage === "kor" ? post.kor_summary : post.eng_summary;
   const [imageFailed, setImageFailed] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -152,7 +179,7 @@ function PostItem({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={post.image_url}
-            alt={post.title || "Magazine thumbnail"}
+            alt={title || "Magazine thumbnail"}
             className="aspect-[5/4] w-full object-cover"
             loading="lazy"
             onError={() => setImageFailed(true)}
@@ -162,14 +189,14 @@ function PostItem({
         )}
         {post.category ? (
           <div className="absolute left-3 top-3 rounded-[8px] border border-[#dccfbd] bg-[#fff8ef] px-2.5 py-1 text-[0.74rem] font-semibold text-[#5b4434]">
-            {post.category}
+            {getCategoryLabel(post.category)}
           </div>
         ) : null}
       </div>
 
       <div className="p-4 sm:p-5">
         <h2 className="text-[1.2rem] leading-[1.2] font-bold text-[#3d2b1f] sm:text-[1.28rem]">
-          {post.title || "Untitled"}
+          {title || "Untitled"}
         </h2>
         <div className="mt-2 text-[0.78rem] text-[#8c7b6e]">{formatRelativeTime(post.$createdAt)}</div>
         <div className="relative mt-3">
@@ -211,7 +238,7 @@ function PostItem({
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#f0e6db] pt-4">
           <LanguageSwitch activeLanguage={activeLanguage} onChange={onLanguageChange} />
           <div className="text-right text-[0.78rem] leading-5 text-[#7a6554]">
-            {post.category ? <div>{post.category}</div> : null}
+            {post.category ? <div>{getCategoryLabel(post.category)}</div> : null}
             {post.original_url ? (
               <a
                 href={post.original_url}
@@ -239,51 +266,134 @@ export function PostsFeed({
   const posts = initialPosts;
   const error = initialError;
   const [languageByPost, setLanguageByPost] = useState<Record<string, Language>>({});
+  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
+  const categories = [
+    {
+      value: ALL_CATEGORY,
+      label: "All",
+    },
+    ...Array.from(
+      new Map(
+        posts.map((post) => {
+          const normalized = post.category?.trim() || UNCATEGORIZED_CATEGORY;
+
+          return [
+            normalized,
+            {
+              value: normalized,
+              label: getCategoryLabel(post.category),
+            },
+          ];
+        }),
+      ).values(),
+    ),
+  ];
+  const filteredPosts =
+    selectedCategory === ALL_CATEGORY
+      ? posts
+      : posts.filter(
+          (post) => (post.category?.trim() || UNCATEGORIZED_CATEGORY) === selectedCategory,
+        );
 
   return (
-    <main
-      className="min-h-screen bg-[#fdfcfb] px-4 py-6 text-[#3d2b1f] sm:px-6"
-      style={{
-        fontFamily:
-          '"Helvetica Neue", "Neue Haas Grotesk Text Pro", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif',
-      }}
-    >
-      <div className="mx-auto max-w-xl">
-        <header className="mb-4 flex items-center justify-between border-b border-[#ece1d4] pb-3">
-          <div className="text-[1.8rem] leading-none font-black tracking-[-0.05em]">VERY</div>
-          <div className="text-sm text-[#7a6554]">{posts.length} posts</div>
-        </header>
+    <main className="min-h-screen">
+      {/* Hero Section */}
+      <section className="relative flex h-screen flex-col overflow-hidden bg-[#fdfcfb] text-[#3d2b1f]">
+        {/* Background Decorations */}
+        <div className="absolute inset-0 opacity-60 bg-[repeating-linear-gradient(135deg,transparent,transparent_18px,rgba(61,43,31,0.035)_18px,rgba(61,43,31,0.035)_36px)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(253,252,251,0.96)_0%,rgba(247,240,232,0.9)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(61,43,31,0.045),transparent_70%)]" />
 
-        {error ? (
-          <div className="rounded-[10px] border border-[#ead6cb] bg-[#fff7f4] px-4 py-3 text-sm text-[#8d4b2f]">
-            {error}
+        {/* Logo */}
+        <div className="relative z-10 p-6">
+          <div className="text-[1.1rem] font-black tracking-widest">VERY</div>
+        </div>
+
+        {/* Main Content */}
+        <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <h1 className="max-w-5xl text-5xl leading-[1.1] font-extrabold tracking-tighter text-[#3d2b1f] sm:text-7xl lg:text-8xl">
+            <span className="block">0% Human. 100% AI.</span>
+            <span className="mt-4 block text-[0.9em] font-medium leading-tight text-[#4e392b]">
+              Daily tech, design & chocolate inspiration, delivered autonomously every morning.
+            </span>
+          </h1>
+          <p className="mt-12 max-w-2xl font-mono text-sm tracking-tight text-[#8c7b6e]">
+            &gt; System Log: An autonomous AI system (VERY-BOT), running on Very Good
+            Chocolate&apos;s private server, gathers and publishes trends from around the world.
+          </p>
+        </div>
+
+        {/* Bottom Info */}
+        <div className="relative z-10 flex flex-col items-center gap-8 pb-12">
+          <div className="text-sm font-medium tracking-[0.2em] text-[#8c7b6e]">
+            {filteredPosts.length} POSTS
           </div>
-        ) : null}
-
-        {!error && posts.length === 0 ? (
-          <div className="rounded-[10px] border border-[#e8ddd0] bg-[#fffdfa] px-4 py-6 text-sm text-[#7a6554]">
-            No posts found.
+          <div className="animate-pulse text-center text-[#8c7b6e]">
+            <div className="text-sm uppercase tracking-[0.3em]">Scroll to Explore</div>
+            <div className="mt-2 text-xl">↓</div>
           </div>
-        ) : null}
+        </div>
+      </section>
 
-        {!error ? (
-          <section className="space-y-4">
-            {posts.map((post) => (
-              <PostItem
-                key={post.$id}
-                post={post}
-                activeLanguage={languageByPost[post.$id] ?? "kor"}
-                onLanguageChange={(language) => {
-                  setLanguageByPost((current) => ({
-                    ...current,
-                    [post.$id]: language,
-                  }));
-                }}
-              />
-            ))}
-          </section>
-        ) : null}
-      </div>
+      {/* Feed Section */}
+      <section className="bg-[#fdfcfb] px-4 py-20 text-[#3d2b1f] sm:px-6">
+        <div className="mx-auto max-w-xl">
+          {!error ? (
+            <div className="mb-12 flex justify-center overflow-x-auto pb-4">
+              <div className="flex gap-2">
+                {categories.map((category) => {
+                  const isSelected = selectedCategory === category.value;
+
+                  return (
+                    <button
+                      key={category.value}
+                      type="button"
+                      onClick={() => setSelectedCategory(category.value)}
+                      className={`rounded-full border px-5 py-2 text-sm font-bold transition-all duration-200 ${
+                        isSelected
+                          ? "border-[#3d2b1f] bg-[#3d2b1f] text-[#fffdfa]"
+                          : "border-[#decfbd] bg-[#fffdfa] text-[#6f5847] hover:border-[#bca893]"
+                      }`}
+                    >
+                      {category.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {error ? (
+            <div className="rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {error}
+            </div>
+          ) : null}
+
+          {!error && filteredPosts.length === 0 ? (
+            <div className="rounded-[10px] border border-[#1a0f08]/10 bg-white/20 px-4 py-12 text-center text-sm font-medium text-[#1a0f08]/40">
+              No posts found.
+            </div>
+          ) : null}
+
+          {!error ? (
+            <div className="space-y-8">
+              {filteredPosts.map((post) => (
+                <PostItem
+                  key={post.$id}
+                  post={post}
+                  activeLanguage={languageByPost[post.$id] ?? "kor"}
+                  onLanguageChange={(language) => {
+                    setLanguageByPost((current) => ({
+                      ...current,
+                      [post.$id]: language,
+                    }));
+                  }}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </section>
     </main>
   );
 }

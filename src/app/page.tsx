@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 export type MagazinePost = Models.Document & {
   title?: string;
+  eng_title?: string;
   kor_summary?: string;
   eng_summary?: string;
   image_url?: string;
