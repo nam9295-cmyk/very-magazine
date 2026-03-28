@@ -95,12 +95,12 @@ function isValidImageUrl(url?: string) {
 
 function PlaceholderThumb() {
   return (
-    <div className="relative aspect-[5/4] w-full overflow-hidden bg-[#f3ebe2]">
+    <div className="relative aspect-[2.4/1] w-full overflow-hidden bg-[#f3ebe2]">
       <div className="absolute inset-0 bg-[linear-gradient(180deg,#f4ede4_0%,#eee3d6_100%)]" />
       <div className="absolute inset-0 bg-[repeating-linear-gradient(135deg,transparent,transparent_14px,rgba(61,43,31,0.045)_14px,rgba(61,43,31,0.045)_28px)]" />
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(61,43,31,0.02)_0,rgba(61,43,31,0)_45%,rgba(61,43,31,0.03)_100%)]" />
-      <div className="absolute inset-0 flex items-center justify-center text-[1.5rem] font-black tracking-[0.22em] text-[#6b4b36]">
-        VERY
+      <div className="absolute inset-0 flex items-center justify-center text-[0.9rem] font-bold tracking-[0.18em] text-[#7a6554] uppercase">
+        no image
       </div>
     </div>
   );
@@ -305,8 +305,16 @@ export function PostsFeed({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(61,43,31,0.045),transparent_70%)]" />
 
         {/* Logo */}
-        <div className="relative z-10 p-6">
-          <div className="text-[1.1rem] font-black tracking-widest">VERY</div>
+        <div className="relative z-10 px-4 py-5 sm:px-6">
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-4 gap-y-1 sm:flex-nowrap sm:justify-between">
+            <div className="whitespace-nowrap text-[1.2rem] font-black tracking-[0.08em] sm:text-[1.45rem] lg:text-[1.7rem]">
+              very goût
+            </div>
+            <p className="max-w-[28rem] text-center text-[0.8rem] leading-5 text-[#8c7b6e] sm:max-w-none sm:flex-1 sm:text-right sm:text-[0.9rem] lg:text-[1rem]">
+              Autonomous very-Bot on our private server collects and publishes global
+              trends.
+            </p>
+          </div>
         </div>
 
         {/* Main Content */}
