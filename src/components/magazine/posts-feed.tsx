@@ -1,14 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { MagazinePost } from "@/app/page";
+import type { MagazinePost } from "@/lib/magazine-posts";
+import {
+  ALL_CATEGORY,
+  POSTS_PAGE_SIZE,
+  UNCATEGORIZED_CATEGORY,
+  UNCATEGORIZED_LABEL,
+} from "@/lib/magazine-posts";
 
 type Language = "kor" | "eng";
+type PostsResponse = {
+  hasMore: boolean;
+  posts: MagazinePost[];
+  total: number;
+};
+
 const COLLAPSED_SUMMARY_HEIGHT = 84;
-const ALL_CATEGORY = "__all__";
-const UNCATEGORIZED_CATEGORY = "__uncategorized__";
-const UNCATEGORIZED_LABEL = "Uncategorized";
 const CATEGORY_LABELS: Record<string, string> = {
   패션: "Fashion",
   뷰티: "Beauty",
@@ -91,6 +100,36 @@ function isValidImageUrl(url?: string) {
   } catch {
     return false;
   }
+}
+
+function buildPostsUrl(category: string, offset: number) {
+  const searchParams = new URLSearchParams({
+    offset: String(offset),
+  });
+
+  if (category !== ALL_CATEGORY) {
+    searchParams.set("category", category);
+  }
+
+  return `/api/posts?${searchParams.toString()}`;
+}
+
+async function fetchPostsPage(category: string, offset: number) {
+  const response = await fetch(buildPostsUrl(category, offset), {
+    cache: "no-store",
+  });
+
+  const payload = (await response.json()) as PostsResponse | { message?: string };
+
+  if (!response.ok) {
+    throw new Error(
+      "message" in payload && payload.message
+        ? payload.message
+        : "Failed to load magazine posts.",
+    );
+  }
+
+  return payload as PostsResponse;
 }
 
 function PlaceholderThumb() {
@@ -257,54 +296,145 @@ function PostItem({
 }
 
 export function PostsFeed({
+  availableCategories,
+  hasUncategorized,
   initialPosts,
+  initialHasMore,
   initialError,
+  initialTotal,
 }: {
+  availableCategories: string[];
+  hasUncategorized: boolean;
   initialPosts: MagazinePost[];
+  initialHasMore: boolean;
   initialError: string | null;
+  initialTotal: number;
 }) {
-  const posts = initialPosts;
-  const error = initialError;
+  const [posts, setPosts] = useState(initialPosts);
+  const [error, setError] = useState(initialError);
   const [languageByPost, setLanguageByPost] = useState<Record<string, Language>>({});
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
-  const categories = [
-    {
-      value: ALL_CATEGORY,
-      label: "All",
-    },
-    ...Array.from(
-      new Map(
-        posts.map((post) => {
-          const normalized = post.category?.trim() || UNCATEGORIZED_CATEGORY;
+  const [offset, setOffset] = useState(initialPosts.length);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [totalCount, setTotalCount] = useState(initialTotal);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isCategoryLoading, setIsCategoryLoading] = useState(false);
+  const requestRef = useRef(0);
 
-          return [
-            normalized,
+  const categories = useMemo(
+    () => [
+      {
+        value: ALL_CATEGORY,
+        label: "All",
+      },
+      ...availableCategories.map((category) => ({
+        value: category,
+        label: getCategoryLabel(category),
+      })),
+      ...(hasUncategorized
+        ? [
             {
-              value: normalized,
-              label: getCategoryLabel(post.category),
+              value: UNCATEGORIZED_CATEGORY,
+              label: UNCATEGORIZED_LABEL,
             },
-          ];
-        }),
-      ).values(),
-    ),
-  ];
-  const filteredPosts =
-    selectedCategory === ALL_CATEGORY
-      ? posts
-      : posts.filter(
-          (post) => (post.category?.trim() || UNCATEGORIZED_CATEGORY) === selectedCategory,
+          ]
+        : []),
+    ],
+    [availableCategories, hasUncategorized],
+  );
+
+  useEffect(() => {
+    let isDisposed = false;
+    const currentRequest = requestRef.current + 1;
+
+    requestRef.current = currentRequest;
+
+    if (selectedCategory === ALL_CATEGORY) {
+      setPosts(initialPosts);
+      setOffset(initialPosts.length);
+      setHasMore(initialHasMore);
+      setTotalCount(initialTotal);
+      setError(initialError);
+      setIsCategoryLoading(false);
+      return () => {
+        isDisposed = true;
+      };
+    }
+
+    setIsCategoryLoading(true);
+    setError(null);
+
+    void fetchPostsPage(selectedCategory, 0)
+      .then((response) => {
+        if (isDisposed || requestRef.current !== currentRequest) {
+          return;
+        }
+
+        setPosts(response.posts);
+        setOffset(response.posts.length);
+        setHasMore(response.hasMore);
+        setTotalCount(response.total);
+      })
+      .catch((fetchError) => {
+        if (isDisposed || requestRef.current !== currentRequest) {
+          return;
+        }
+
+        setPosts([]);
+        setOffset(0);
+        setHasMore(false);
+        setTotalCount(0);
+        setError(
+          fetchError instanceof Error ? fetchError.message : "Failed to load magazine posts.",
         );
+      })
+      .finally(() => {
+        if (isDisposed || requestRef.current !== currentRequest) {
+          return;
+        }
+
+        setIsCategoryLoading(false);
+      });
+
+    return () => {
+      isDisposed = true;
+    };
+  }, [initialError, initialHasMore, initialPosts, initialTotal, selectedCategory]);
+
+  async function handleLoadMore() {
+    if (isLoadingMore || isCategoryLoading || !hasMore) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+
+    try {
+      const response = await fetchPostsPage(selectedCategory, offset);
+
+      setPosts((currentPosts) => {
+        const seen = new Set(currentPosts.map((post) => post.$id));
+        const appendedPosts = response.posts.filter((post) => !seen.has(post.$id));
+
+        return [...currentPosts, ...appendedPosts];
+      });
+      setOffset((currentOffset) => currentOffset + response.posts.length);
+      setHasMore(response.hasMore);
+      setTotalCount(response.total);
+      setError(null);
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "Failed to load magazine posts.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
 
   return (
     <main className="min-h-screen">
-      {/* Hero Section */}
       <section className="relative flex h-screen flex-col overflow-hidden bg-[#fdfcfb] text-[#3d2b1f]">
-        {/* Background Decorations */}
         <div className="absolute inset-0 opacity-60 bg-[repeating-linear-gradient(135deg,transparent,transparent_18px,rgba(61,43,31,0.035)_18px,rgba(61,43,31,0.035)_36px)]" />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(253,252,251,0.96)_0%,rgba(247,240,232,0.9)_100%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(61,43,31,0.045),transparent_70%)]" />
 
-        {/* Logo */}
         <div className="relative z-10 px-4 py-5 sm:px-6">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-4 gap-y-1 sm:flex-nowrap sm:justify-between">
             <div className="whitespace-nowrap text-[1.2rem] font-black tracking-[0.08em] sm:text-[1.45rem] lg:text-[1.7rem]">
@@ -317,7 +447,6 @@ export function PostsFeed({
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 text-center">
           <h1 className="max-w-5xl text-5xl leading-[1.1] font-extrabold tracking-tighter text-[#3d2b1f] sm:text-7xl lg:text-8xl">
             <span className="block">0% Human. 100% AI.</span>
@@ -331,10 +460,9 @@ export function PostsFeed({
           </p>
         </div>
 
-        {/* Bottom Info */}
         <div className="relative z-10 flex flex-col items-center gap-8 pb-12">
           <div className="text-sm font-medium tracking-[0.2em] text-[#8c7b6e]">
-            {filteredPosts.length} POSTS
+            {totalCount} POSTS
           </div>
           <div className="animate-pulse text-center text-[#8c7b6e]">
             <div className="text-sm uppercase tracking-[0.3em]">Scroll to Explore</div>
@@ -343,7 +471,6 @@ export function PostsFeed({
         </div>
       </section>
 
-      {/* Feed Section */}
       <section className="bg-[#fdfcfb] px-4 py-20 text-[#3d2b1f] sm:px-6">
         <div className="mx-auto max-w-xl">
           {!error ? (
@@ -377,15 +504,21 @@ export function PostsFeed({
             </div>
           ) : null}
 
-          {!error && filteredPosts.length === 0 ? (
+          {isCategoryLoading ? (
+            <div className="rounded-[10px] border border-[#e8ddd0] bg-[#fffdfa] px-4 py-12 text-center text-sm text-[#7a6554]">
+              Loading posts...
+            </div>
+          ) : null}
+
+          {!error && !isCategoryLoading && posts.length === 0 ? (
             <div className="rounded-[10px] border border-[#1a0f08]/10 bg-white/20 px-4 py-12 text-center text-sm font-medium text-[#1a0f08]/40">
               No posts found.
             </div>
           ) : null}
 
-          {!error ? (
+          {!error && !isCategoryLoading ? (
             <div className="space-y-8">
-              {filteredPosts.map((post) => (
+              {posts.map((post) => (
                 <PostItem
                   key={post.$id}
                   post={post}
@@ -398,6 +531,19 @@ export function PostsFeed({
                   }}
                 />
               ))}
+            </div>
+          ) : null}
+
+          {!error && !isCategoryLoading && posts.length > 0 && hasMore ? (
+            <div className="mt-10 flex justify-center">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="rounded-[10px] border border-[#dccdbd] bg-[#f7f0e8] px-6 py-3 text-sm font-semibold text-[#3d2b1f] transition-colors duration-150 hover:bg-[#efe5d9] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoadingMore ? "Loading..." : `↓ Load More (${POSTS_PAGE_SIZE})`}
+              </button>
             </div>
           ) : null}
         </div>

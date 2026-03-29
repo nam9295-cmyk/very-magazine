@@ -1,45 +1,67 @@
-import { type Models, Query } from "appwrite";
-
 import { PostsFeed } from "@/components/magazine/posts-feed";
-import { appwriteConfig, createAppwriteDatabases } from "@/lib/appwrite";
+import {
+  listAvailableCategories,
+  listPostsPage,
+  POSTS_PAGE_SIZE,
+  type MagazinePost,
+} from "@/lib/magazine-posts";
 
 export const dynamic = "force-dynamic";
 
-export type MagazinePost = Models.Document & {
-  title?: string;
-  eng_title?: string;
-  kor_summary?: string;
-  eng_summary?: string;
-  image_url?: string;
-  original_url?: string;
-  category?: string;
+type HomeData = {
+  categories: string[];
+  hasMore: boolean;
+  hasUncategorized: boolean;
+  posts: MagazinePost[];
+  total: number;
 };
 
-async function getPosts() {
+async function getHomeData() {
   try {
-    const databases = createAppwriteDatabases();
-    const response = await databases.listDocuments<MagazinePost>({
-      databaseId: appwriteConfig.databaseId,
-      collectionId: appwriteConfig.collectionId,
-      queries: [Query.orderDesc("$createdAt"), Query.limit(50)],
-    });
+    const [{ posts, hasMore, total }, { categories, hasUncategorized }] = await Promise.all([
+      listPostsPage({
+        limit: POSTS_PAGE_SIZE,
+      }),
+      listAvailableCategories(),
+    ]);
+
+    const data: HomeData = {
+      categories,
+      hasMore,
+      hasUncategorized,
+      posts,
+      total,
+    };
 
     return {
-      posts: response.documents.map((document) => ({
-        ...document,
-      })),
+      data,
       error: null,
     };
   } catch (error) {
     return {
-      posts: [] as MagazinePost[],
+      data: {
+        categories: [],
+        hasMore: false,
+        hasUncategorized: false,
+        posts: [] as MagazinePost[],
+        total: 0,
+      },
       error: error instanceof Error ? error.message : "Failed to load magazine posts.",
     };
   }
 }
 
 export default async function Home() {
-  const { posts, error } = await getPosts();
+  const { data, error } = await getHomeData();
 
-  return <PostsFeed initialPosts={posts} initialError={error} />;
+  return (
+    <PostsFeed
+      availableCategories={data.categories}
+      hasUncategorized={data.hasUncategorized}
+      initialError={error}
+      initialHasMore={data.hasMore}
+      initialPosts={data.posts}
+      initialTotal={data.total}
+    />
+  );
 }
