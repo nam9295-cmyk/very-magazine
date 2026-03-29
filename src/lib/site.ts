@@ -1,6 +1,6 @@
 export const siteConfig = {
-  name: "Very Magazine",
+  name: "VERY Magazine",
   description:
-    "A clean Next.js starter with TypeScript, Tailwind CSS v4, App Router, and a src-first directory structure.",
-  url: "https://example.com",
+    "0% Human. 100% AI. 전 세계 테크, 디자인, 초콜릿 트렌드를 자율형 AI가 큐레이션 하는 매거진.",
+  url: "https://very-magazine.nockpet.workers.dev",
 } as const;
